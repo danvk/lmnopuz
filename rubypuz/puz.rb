@@ -24,6 +24,8 @@
 #++
 #
 # See Crossword for details.
+require 'iconv'
+$ic = Iconv.new('utf-8', 'iso-8859-1')  # confusing (to, from) ordering
 
 # A crossword.
 class Crossword
@@ -103,7 +105,8 @@ class Crossword
       end
     end
 
-    # XXX right here we should convert the strings to UTF-8.
+    # Convert the strings to UTF-8.
+    strings = strings.map { |x| $ic.iconv(x) }
     
     clueoffset = ofs
     @title = strings.shift
