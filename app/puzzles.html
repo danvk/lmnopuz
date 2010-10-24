@@ -1,0 +1,20 @@
+<html>
+  <head>
+    <title>puzzles</title>
+  </head>
+  <body>
+    <h3>Available puzzles</h3>
+    <ul>
+    {% for puzzle in puzzles %}
+      <li><a href="/crossword/{{puzzle.id}}"><b>{{ puzzle.title }}</b></a>
+    {% endfor %}
+    </ul>
+
+    <h3>Upload a puzzle</h3>
+    <form action="/uploadpuz" method="post" enctype="multipart/form-data">
+      <b>Choose a puz file: </b>
+      <input type="file" name="puz" size="40"><br/>
+      <input type="submit" value="Upload">
+    </form>
+  </body>
+</html>
