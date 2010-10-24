@@ -6,7 +6,7 @@
     <h3>Available puzzles</h3>
     <ul>
     {% for puzzle in puzzles %}
-      <li><a href="/crossword/{{puzzle.id}}"><b>{{ puzzle.title }}</b></a>
+      <li><a href="/crossword/{{ puzzle.key }}"><b>{{ puzzle.title }}</b></a>
     {% endfor %}
     </ul>
 

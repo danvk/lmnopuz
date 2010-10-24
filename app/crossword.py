@@ -23,6 +23,10 @@ class Crossword(object):
     return Convert(puz)
 
 
+def Latin1ToUTF8(x):
+  return unicode(x.decode("latin-1"))
+
+
 def Convert(puz):
   """Returns a JSON-format string from a puz string"""
   if puz[2:14] != 'ACROSS&DOWN\0':
@@ -53,11 +57,11 @@ def Convert(puz):
   # XXX right here we should convert the strings to UTF-8.
 
   clueoffset = ofs
-  c.title = strings[0]
+  c.title = Latin1ToUTF8(strings[0])
   clueoffset += len(c.title) + 1
-  c.author = strings[1]
+  c.author = Latin1ToUTF8(strings[1])
   clueoffset += len(c.author) + 1
-  c.copyright = strings[2]
+  c.copyright = Latin1ToUTF8(strings[2])
   clueoffset += len(c.copyright) + 1
   strings = strings[3:]
 

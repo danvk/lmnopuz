@@ -8,6 +8,7 @@ __author__ = 'danvdk@gmail.com (Dan Vanderkam)'
 import datetime
 import logging
 import os
+import re
 from crossword import Crossword
 from django.utils import simplejson
 from google.appengine.api import channel
@@ -25,18 +26,30 @@ class CrosswordStore(db.Model):
   data = db.BlobProperty(required=True)
 
   # A few bits from the parsed PUZ file for easier browsing.
-  title = db.StringProperty(required=True)
-  author = db.StringProperty()
-  copyright = db.StringProperty()
+  title = db.TextProperty(required=True)
+  author = db.TextProperty()
+  copyright = db.TextProperty()
 
-class PuzzlePage(webapp.RequestHandler):
+class PuzzleListPage(webapp.RequestHandler):
   def get(self):
-    """List all puzzles"""
-    logging.info("PuzzlePage")
+    logging.info("PuzzlePage: %s" % self.request.path)
     puzzles = CrosswordStore.all().order("-upload_time").fetch(100)
     path = os.path.dirname(__file__) + "/puzzles.html"
     vals = {
       'puzzles': puzzles
+    }
+    self.response.out.write(template.render(path, vals))
+
+class PuzzlePage(webapp.RequestHandler):
+  def get(self):
+    m = re.match(r'/crossword/(.*)', self.request.path)
+    assert m
+    key = m.group(1)
+    puz = CrosswordStore.get(key)
+    assert puz
+    path = os.path.dirname(__file__) + "/puzzle_page.html"
+    vals = {
+      'c': puz
     }
     self.response.out.write(template.render(path, vals))
 
@@ -56,9 +69,6 @@ class UploadHandler(webapp.RequestHandler):
     if c.author: puz.author = c.author
     if c.copyright: puz.copyright = c.copyright
 
-    for c in c.copyright:
-      logging.info("%s: %d" % (c, ord(c)))
-
     db.put(puz)
     logging.info("Stored %s in DB" % c.title)
 
@@ -67,6 +77,7 @@ class UploadHandler(webapp.RequestHandler):
 
 application = webapp.WSGIApplication([
   ('/crossword', PuzzlePage),
+  ('/crossword/.*', PuzzlePage),
   ('/uploadpuz', UploadHandler),
 ], debug=True)
 
