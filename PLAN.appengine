@@ -1,0 +1,53 @@
+Dan & Evan's lmnopuz had two parts:
+- Ruby server
+- JS frontend
+
+Step one is to port the ruby server to python and host it on app engine. It
+depends on "hanging gets", which app engine has recently added support for.
+
+Once that's working, I can add facebook integration. It may be possible to use
+Facebook's chat system via the "Live Stream Box", rather than rolling my own.
+
+Another must: links to free puzzles around the web. Most users won't want to
+drag and drop .puz files into their browsers.
+
+Other things to do:
+- write a simple chat server using app engine
+- document the old Ruby server's interface
+- backport changes made for lmnowave to lmnopuz
+
+
+Ruby server
+lmnopuz/HACKING clearly documents the interace.
+
+lmnopuz/server:
+crossword_to_hash: translate directly to a python function
+CrosswordStore: becomes a database table
+                I'll just store the binary puz data in the DB, along with the
+                uploading user.
+SessionState:
+  session_id
+  Cell:
+    letter
+    guess (true/false)
+    uid
+    last_updated
+  Roster:
+    User
+      user (channel token = user + session_id)
+      last_update_received
+      color
+      cursor_x
+      cursor_y
+  Message:
+    text
+    user
+    time
+
+URLs:
+  /
+  /crossword
+  /static/...
+  /session
+  /session/update
+  /quit

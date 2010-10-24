@@ -1,0 +1,49 @@
+<html>
+  <head>
+    <script src='/_ah/channel/jsapi'></script>
+    <title>Chat demo</title>
+
+    <script type="text/javascript">
+      sendMessage = function(path) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', path, true);
+        xhr.send();
+      }
+
+      var token = '{{ channel_id }}';
+      var channel = new goog.appengine.Channel(token);
+      var socket = channel.open();
+      socket.onopen = function() {
+        window.setTimeout(function() {sendMessage('connected')}, 100);
+      }
+      socket.onmessage = function(evt) {
+        var o = JSON.parse(evt.data);
+        if (o.lines) {
+          var txt = "";
+          for (var i = 0; i < o.lines.length; i++) {
+            txt += "\n" + o.lines[i];
+          }
+          document.getElementById("chat").innerHTML += txt;
+        }
+      }
+
+      function chat() {
+        var el = document.getElementById("text");
+        var text = el.value;
+        el.value = "";
+        sendMessage('/chat?text=' + escape(text));
+      }
+    </script>
+  </head>
+  <body>
+    <pre id="chat" style="border: 1px solid black; width: 450px;">
+    {{ lines }}
+    </pre>
+
+    <div style="position: absolute; left: 500px; top: 25px;">
+    <b>Enter a chat line:</b><br/>
+    <input type="text" size=30 id="text" /><br/>
+    <input type="button" value="Send" onClick="chat()" />
+    </div>
+  </body>
+</html>
