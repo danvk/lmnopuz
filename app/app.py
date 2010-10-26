@@ -10,7 +10,7 @@ import googtmpl
 import logging
 import os
 import re
-from crossword import Crossword
+import crossword
 from django.utils import simplejson
 from google.appengine.api import channel
 from google.appengine.api import users
@@ -34,40 +34,69 @@ class CrosswordStore(db.Model):
 def GetTemplate(name):
   # TODO(danvk): cache templates?
   path = os.path.dirname(__file__) + "/templates/" + name
-  return Template().parse(open(path, "r").read())
+  logging.info('Loading template %s' % path)
+  return googtmpl.Template().parse(open(path, "r").read())
 
-class PuzzleListPage(webapp.RequestHandler):
-  def get(self):
-    puzzles = CrosswordStore.all().order("-upload_time").fetch(100)
-    vals = {
-      'puzzles': puzzles
-    }
-    self.response.out.write(GetTemplate('puzzles.html').render(vals))
+def ServeTemplatedPage(response, title, letters, depth, filename, data):
+  csspath = '../' * depth + 'static/site.css'
+  content = GetTemplate(filename).render(data)
+  # head['Content-type'] = 'text/html'
+  vals = {
+    'title': title,
+    'letters': [{'l': let} for let in letters],
+    'css': csspath,
+    'content': content
+  }
+  logging.info(vals)
+  response.out.write(GetTemplate('page.tmpl').render(vals))
+
 
 class PuzzlePage(webapp.RequestHandler):
+  """Serves /crossword/, /crossword/<key>/ and /crossword/<key>/crossword.js"""
   def get(self):
+    if self.request.path == '/crossword':
+      self.redirect('/crossword/')
+      return
+
     parts = self.request.path.split('/')
     del parts[0:2]  # '' and 'crossword'
 
-    key = parts[0]
-    puz = CrosswordStore.get(key)
-    assert puz
-
-    if len(parts) > 1 and parts[1] == 'crossword.js':
-      pass
+    if parts[0] == '':
+      # Return a list of all puzzles.
+      puzzles = CrosswordStore.all().order("-upload_time").fetch(100)
+      ServeTemplatedPage(self.response, 'Choose Crossword', 'CROSSWORDS', 1,
+                         'crosswordlist.tmpl',
+                         {
+                           'crossword': [
+                             {
+                               'title': c.title,
+                               'url': '/crossword/%s/' % c.key
+                             }
+                           ]
+                         })
     else:
-    path = os.path.dirname(__file__) + "/puzzle_page.html"
-    vals = {
-      'c': puz
-    }
-    self.response.out.write(template.render(path, vals))
+      key = parts[0]
+      del parts[0]
+      puz = CrosswordStore.get(key)
+      assert puz
+
+      if parts[0] == '':
+        # This page contains all the UI bits. It requests "crossword.js".
+        self.response.out.write(GetTemplate('crossword.tmpl').render({
+          'multiplayer': False
+        }))
+      elif parts[0] == 'crossword.js':
+        # Serve up crossword JSON.
+        json = crossword.Convert(puz.data)
+        self.response.out.write("var Crossword = " + json + ";")
+
 
 class UploadHandler(webapp.RequestHandler):
   def post(self):
     """Store a new puzzle file in the DB"""
     logging.info("UploadHandler")
     x = self.request.get('puz')
-    c = Crossword.FromString(x)
+    c = crossword.Crossword.FromString(x)
 
     logging.info("Title: %s" % c.title)
     logging.info("Author: %s" % c.author)
@@ -83,22 +112,20 @@ class UploadHandler(webapp.RequestHandler):
 
     self.redirect('/crossword')
 
+
 class FrontPage(webapp.RequestHandler):
   def get(self):
     num_puz = CrosswordStore.all().count()
-    vals = {
-      'NUMCROSSWORDS': num_puz
-    }
-    tmpl_file = os.path.dirname(__file__) + "/templates/frontpage.tmpl"
-    tmpl = googtmpl.Template().parse(open(tmpl_file).read())
-    self.response.out.write(tmpl.render(vals))
+    ServeTemplatedPage(self.response, 'lmnopuz', 'LMNOPUZ', 0,
+                       'frontpage.tmpl',
+                       { 'numcrosswords': num_puz,
+                         'multi': False
+                       })
 
 
 application = webapp.WSGIApplication([
   ('/', FrontPage),
-  ('/crossword', PuzzleListPage),
-  ('/crossword/', PuzzleListPage),
-  ('/crossword/.+', PuzzlePage),
+  ('/crossword.*', PuzzlePage),
   ('/uploadpuz', UploadHandler),
 ], debug=True)
 
