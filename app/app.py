@@ -34,9 +34,9 @@ class CrosswordStore(db.Model):
 
 # General structure:
 # SessionState
-#   [Cell]
-#   [Roster]
-#   [Message]
+#   [Cell]  -- current state of each cell in the grid
+#   [Roster] -- users currently involved in the puzzle
+#   [Message] -- lines in the chat box
 class SessionState(db.Model):
   # .key() = session_id
   start_time = db.DateTimeProperty(auto_now=True)
@@ -45,15 +45,18 @@ class SessionState(db.Model):
 
 
 class Cell(db.Model):
+  # key = session.key() + x,y
   session = db.ReferenceProperty(SessionState)
   x = db.IntegerProperty(required=True)
   y = db.IntegerProperty(required=True)
+
   guess = db.BooleanProperty(default=False)
   user = db.UserProperty()
   last_updated = db.DateTimeProperty(auto_now=True)
 
 
 class Roster(db.Model):
+  # key = session.key() + user
   session = db.ReferenceProperty(SessionState)
   user = db.UserProperty()
   color = db.StringProperty()
@@ -62,6 +65,7 @@ class Roster(db.Model):
 
 
 class Message(db.Model):
+  # key = session.key()
   session = db.ReferenceProperty(SessionState)
   user = db.UserProperty()
   time = db.DateTimeProperty(auto_now=True)
