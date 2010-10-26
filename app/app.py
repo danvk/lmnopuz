@@ -91,6 +91,7 @@ class PuzzlePage(webapp.RequestHandler):
         }))
       elif parts[0] == 'crossword.js':
         # Serve up crossword JSON.
+        # TODO(danvk): set response type to text/javascript
         json = crossword.Convert(puz.data).ToJSON()
         self.response.out.write("var Crossword = " + json + ";")
 
