@@ -12,19 +12,19 @@ Another must: links to free puzzles around the web. Most users won't want to
 drag and drop .puz files into their browsers.
 
 Other things to do:
-- write a simple chat server using app engine
-- document the old Ruby server's interface
-- backport changes made for lmnowave to lmnopuz
+x write a simple chat server using app engine
+x document the old Ruby server's interface
+x backport changes made for lmnowave to lmnopuz
 
 
 Ruby server
 lmnopuz/HACKING clearly documents the interace.
 
 lmnopuz/server:
-crossword_to_hash: translate directly to a python function
-CrosswordStore: becomes a database table
-                I'll just store the binary puz data in the DB, along with the
-                uploading user.
+x crossword_to_hash: translate directly to a python function
+x CrosswordStore: becomes a database table
+                  I'll just store the binary puz data in the DB, along with the
+                  uploading user.
 SessionState:
   session_id
   Cell:
@@ -45,9 +45,9 @@ SessionState:
     time
 
 URLs:
-  /
-  /crossword
-  /static/...
-  /session
-  /session/update
-  /quit
+x  /
+x  /crossword
+x  /static/...
+   /session
+   /session/update
+   /quit

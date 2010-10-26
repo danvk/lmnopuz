@@ -32,10 +32,46 @@ class CrosswordStore(db.Model):
   copyright = db.TextProperty()
 
 
+# General structure:
+# SessionState
+#   [Cell]
+#   [Roster]
+#   [Message]
+class SessionState(db.Model):
+  # .key() = session_id
+  start_time = db.DateTimeProperty(auto_now=True)
+  crossword = db.ReferenceProperty(CrosswordStore)
+  name = db.StringProperty()
+
+
+class Cell(db.Model):
+  session = db.ReferenceProperty(SessionState)
+  x = db.IntegerProperty(required=True)
+  y = db.IntegerProperty(required=True)
+  guess = db.BooleanProperty(default=False)
+  user = db.UserProperty()
+  last_updated = db.DateTimeProperty(auto_now=True)
+
+
+class Roster(db.Model):
+  session = db.ReferenceProperty(SessionState)
+  user = db.UserProperty()
+  color = db.StringProperty()
+  cursor_x = db.IntegerProperty()
+  cursor_y = db.IntegerProperty()
+
+
+class Message(db.Model):
+  session = db.ReferenceProperty(SessionState)
+  user = db.UserProperty()
+  time = db.DateTimeProperty(auto_now=True)
+  text = db.StringProperty()
+
+
+
 def GetTemplate(name):
   # TODO(danvk): cache templates?
   path = os.path.dirname(__file__) + "/templates/" + name
-  logging.info('Loading template %s' % path)
   return googtmpl.Template().parse(open(path, "r").read())
 
 
@@ -49,7 +85,6 @@ def ServeTemplatedPage(response, title, letters, depth, filename, data):
     'css': csspath,
     'content': content
   }
-  logging.info(vals)
   response.out.write(GetTemplate('page.tmpl').render(vals))
 
 
