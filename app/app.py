@@ -30,23 +30,31 @@ class CrosswordStore(db.Model):
   author = db.TextProperty()
   copyright = db.TextProperty()
 
+def GetTemplate(name):
+  # TODO(danvk): cache templates?
+  path = os.path.dirname(__file__) + "/templates/" + name
+  return Template().parse(open(path, "r").read())
+
 class PuzzleListPage(webapp.RequestHandler):
   def get(self):
-    logging.info("PuzzlePage: %s" % self.request.path)
     puzzles = CrosswordStore.all().order("-upload_time").fetch(100)
-    path = os.path.dirname(__file__) + "/puzzles.html"
     vals = {
       'puzzles': puzzles
     }
-    self.response.out.write(template.render(path, vals))
+    self.response.out.write(GetTemplate('puzzles.html').render(vals))
 
 class PuzzlePage(webapp.RequestHandler):
   def get(self):
-    m = re.match(r'/crossword/(.*)', self.request.path)
-    assert m
-    key = m.group(1)
+    parts = self.request.path.split('/')
+    del parts[0:2]  # '' and 'crossword'
+
+    key = parts[0]
     puz = CrosswordStore.get(key)
     assert puz
+
+    if len(parts) > 1 and parts[1] == 'crossword.js':
+      pass
+    else:
     path = os.path.dirname(__file__) + "/puzzle_page.html"
     vals = {
       'c': puz
