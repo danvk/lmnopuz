@@ -33,12 +33,12 @@ class Crossword(object):
         else:
           answers += "."
 
-    nums = [ [None for y in range(0, c.height)] for x in range(0, c.width)]
+    nums = [ [None for x in range(0, c.width)] for y in range(0, c.height)]
     for y in range(0, c.height):
       for x in range(0, c.width):
         sq = c.squares[x][y]
-        if sq: nums[x][y] = sq.number() or 0
-        else:  nums[x][y] = 0
+        if sq: nums[y][x] = sq.number() or 0
+        else:  nums[y][x] = 0
 
     cross_hash = {
         'title': c.title,
