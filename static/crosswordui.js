@@ -37,7 +37,11 @@ function CrosswordWidget() {
 CrosswordWidget.prototype.loadCrossword = function(crossword) {
   var widget = this;
 
-  document.onkeypress = function(e) { return widget.keyPress(e); };
+  // The onkeydown handler prevents the "default actions" from taking place for
+  // special keys (arrows, tab, backspace) in Safari and Chrome. In Firefox,
+  // both onkeypress and onkeyup then fire. In Safari and Chrome, only onkeyup
+  // fires. We can get around all this mess by just using onkeydown.
+  document.onkeydown = function(e) { return widget.keyDown(e); };
   document.onmousedown = function() { widget.focus(); };
 
   this.crossword = crossword;
@@ -72,6 +76,15 @@ CrosswordWidget.prototype.loadCrossword = function(crossword) {
   table.appendChild(tbody);
   this.tbody = tbody;
 
+  if (document.getElementById("puzzle_info")) {
+    var el = document.getElementById("title");
+    if (el) el.innerHTML = crossword["title"];
+    el = document.getElementById("author");
+    if (el) el.innerHTML = crossword["author"];
+    el = document.getElementById("copyright");
+    if (el) el.innerHTML = crossword["copyright"];
+  }
+
   // Hack -- we need something to focus when we want to take the focus away
   // from other input widgets (console, roster, etc.).  Focusing non-input
   // elements doesn't seem to do anything, so we create an invisible input
@@ -98,6 +111,65 @@ CrosswordWidget.prototype.focusClues = function(square) {
       this.getNumber(square, true),
       this.getNumber(square, false),
       this.direction_horiz);
+
+  // Update the "Current Clue" box.
+  if (Globals.cluebox) {
+    var num = this.getNumber(square, this.direction_horiz);
+    var clue_str = num + (this.direction_horiz ? "A" : "D") + ": ";
+    clue_str += Globals.clues.getClueText(num, this.direction_horiz);
+
+    // See if the text is too wide to fit. If it is, shrink it (up to a point).
+    var cb = Globals.cluebox;
+    if (!Globals.size_div) {
+      // Copy all styles from the clue box, except for a few that
+      // make it invisible.
+      var div = document.createElement("div");
+      var computed = window.getComputedStyle(cb, null);
+      for (var i = 0; i < computed.length; i++) {
+        div.style[computed[i]] = computed[computed[i]];
+      }
+
+      div.style.position = 'absolute';
+      div.style.left = '-500px';
+      div.style.top = '-500px';
+      div.style.width = 'auto';
+      div.style.height = 'auto';
+
+      // div.style.border = '1px solid black';
+      document.body.appendChild(div);
+      Globals.size_div = div;
+    }
+
+    Globals.size_div.textContent = clue_str;
+    var textWidth = Globals.size_div.clientWidth;
+    var divWidth = Globals.cluebox.clientWidth - 10;
+
+    var pct = 100.0;
+    var clipped = false;
+    if (divWidth < textWidth) {
+      pct *= divWidth / textWidth;
+      if (pct < 67) {
+        clipped = true;
+        pct = 67;
+      }
+    }
+
+    // TODO(danvk): escape clue_str.
+    Globals.cluebox.innerHTML = "<span style='font-size: " + pct + "%'>" + clue_str + "</span>";
+
+    if (clipped) {
+      // Give some indication (a "...") that the clue was truncated.
+      var dotdiv = document.createElement("div");
+      dotdiv.style.position = 'absolute';
+      dotdiv.style.top = "0px";
+      dotdiv.style.right = "0px";
+      dotdiv.style.textAlign = "right";
+      dotdiv.style.fontSize = pct + "%";
+      dotdiv.style.background = '#fff';
+      dotdiv.innerHTML = "&hellip;";
+      Globals.cluebox.appendChild(dotdiv);
+    }
+  }
 };
 
 // Change the focus to the given target square.
@@ -125,8 +197,13 @@ CrosswordWidget.prototype.moveFocusBoxToSquare = function(focusbox, square) {
 };
 
 // Starting at square, move the focus by (dx,dy), stopping at the edge
-// of the puzzle (and skipping over empty squares if skip == true).
-CrosswordWidget.prototype.focusNext = function(square, dx, dy, skip) {
+// of the puzzle.
+// Skips over black squares if skip_black == true (i.e. for arrow keys).
+// Skips over filled squares if skip_filled == true (i.e. if you're typing).
+// TODO(danvk): this logic is getting really convoluted; rework it.
+CrosswordWidget.prototype.focusNext = function(square, dx, dy,
+                                               skip_black, skip_filled) {
+  var start_square = square;
   var x = square.x;
   var y = square.y;
 
@@ -136,10 +213,25 @@ CrosswordWidget.prototype.focusNext = function(square, dx, dy, skip) {
     square = this.square(x,y);
     if (square) {
       this.setFocus(square, false);
-      return;
+      if (!skip_filled || square.getLetter() == '') {
+        return;
+      }
+    } else {
+      if (skip_filled) {
+        // Must have been completely filled-in. Just go to the next square.
+        return this.focusNext(start_square, dx, dy, false, false);
+      }
+
+      if (!skip_black) {
+        return;
+      }
     }
-    if (!skip) return;
     x += dx; y += dy;
+  }
+
+  if (skip_filled) {
+    // Must have been completely filled-in. Just go to the next square.
+    return this.focusNext(start_square, dx, dy, false, false);
   }
 };
 
@@ -166,6 +258,23 @@ CrosswordWidget.prototype.getStartSquare =
     x += dx; y += dy;
   }
   return h;
+};
+
+// Move to the first blank square past the given square.
+// This is used when the player hits tab or shift-tab.
+CrosswordWidget.prototype.getNextUnfilled = function(square, direction_horiz) {
+  var dx = direction_horiz ? 1 : 0;
+  var dy = direction_horiz ? 0 : 1;
+
+  var x = square.x, y = square.y;
+  while (x >= 0 && y >= 0 &&
+         x < this.crossword.width && y < this.crossword.height &&
+         this.square(x,y)) {
+    h = this.square(x,y);
+    if (h.getLetter() == '') return h;
+    x += dx; y += dy;
+  }
+  return square;  // It's completely filled; May as well go to the start.
 };
 
 // Get the word number of the passed-in square.
@@ -236,7 +345,9 @@ CrosswordWidget.prototype.getNextWord =
     square = this.getStartSquare(square, true, !is_next);
     square = this.getNextSquare(square, is_next);
     if (!square) return undefined;
-    return this.getStartSquare(square, true, true);
+    square = this.getStartSquare(square, true, true);
+    square = this.getNextUnfilled(square, true);
+    return square;
   } else {
     // To find the next vertical word, we move to the beginning of the
     // current word and walk forward across the board until we find a
@@ -245,6 +356,7 @@ CrosswordWidget.prototype.getNextWord =
     square = this.getStartSquare(square, false, true);
     while (square = this.getNextSquare(square, is_next)) {
       if (square.y == 0 || !this.square(square.x, square.y - 1)) {
+        square = this.getNextUnfilled(square, false);
         return square;
       }
     }
@@ -273,6 +385,29 @@ CrosswordWidget.prototype.getLetters = function(number, across) {
   return word;
 };
 
+CrosswordWidget.prototype.keyDown = function(e) {
+  if (!this.focused) return true;
+  if (!e) e = window.event;
+  if (e.altKey || e.ctrlKey || e.metaKey) return true;
+
+  // Safari and Chrome capture special keys by default. We need to
+  // "preventDefault" on the event to stop this from happening.
+  var keycode = e.keyCode;
+  if (   keycode == 9 || keycode == 25  // tab
+      || keycode == 35 || keycode == 63275  // end
+      || keycode == 36 || keycode == 63273  // home
+      || keycode == 37 || keycode == 63234  // left
+      || keycode == 38 || keycode == 63232  // up
+      || keycode == 39 || keycode == 63235  // right
+      || keycode == 40 || keycode == 63233  // down
+      || keycode == 8  // backspace
+      || keycode == 46 || keycode == 63272) { // delete
+    e.preventDefault();
+  }
+
+  return this.keyPress(e);
+};
+
 CrosswordWidget.prototype.keyPress = function(e) {
   if (!this.focused) return true;
   var square = this.focused;
@@ -288,6 +423,10 @@ CrosswordWidget.prototype.keyPress = function(e) {
   // Crazy-looking key codes (63xxx) are for Safari.
   var keycode = e.keyCode;
 
+  if (!charcode) {
+    charcode = keycode;
+  }
+
   if (charcode == 32) {  // space pressed: switch direction
     this.direction_horiz = !this.direction_horiz;
     this.focusClues(square);
@@ -297,21 +436,27 @@ CrosswordWidget.prototype.keyPress = function(e) {
     if (!this.correct) {
       var str = String.fromCharCode(charcode);
       var color = Globals && Globals.mp ? Globals.mp.getColor() : undefined;
-      square.fill(str.toUpperCase(), color,
-                  charcode >= 65 && charcode <= 90 ? true : false);
-      if (this.onChanged)
-        this.onChanged(square.x, square.y, str);
+      // it's only an update if the square was changed.
+      var isGuess = e.shiftKey;
+      str = str.toUpperCase();
+      square.fill(str, color, isGuess);
+      if (this.onChanged) {
+        // lowercase = "pencil", uppercase = "pen".
+        this.onChanged(square.x, square.y, isGuess ? str.toLowerCase() : str);
+      }
+
+      // TODO(danvk): make skip_filled a global parameter here.
       if (this.direction_horiz)
-        this.focusNext(square, 1, 0, false);
+        this.focusNext(square, 1, 0, false, true);
       else
-        this.focusNext(square, 0, 1, false);
+        this.focusNext(square, 0, 1, false, true);
     }
   } else if (charcode == 63) {  // question mark
     if (this.onMessageSent) {
       var num = this.getNumber(square, this.direction_horiz);
       var msg = 'Check out ' + num + " " +
-        (this.direction_horiz ? 'Across' : 'Down') + ": " +
-        Globals.clues.getClueText(num, this.direction_horiz) + ', ' +
+        (this.direction_horiz ? 'Across' : 'Down') + ': "' +
+        Globals.clues.getClueText(num, this.direction_horiz) + '", ' +
         this.getLetters(
             num, this.direction_horiz).replace(/\./g, '_').split('').join(' ');
       this.onMessageSent(msg);
@@ -335,13 +480,13 @@ CrosswordWidget.prototype.keyPress = function(e) {
     this.setFocus(
       this.getStartSquare(square, this.direction_horiz, true), false);
   } else if (keycode == 37 || keycode == 63234) { // left
-    this.focusNext(square, -1, 0, true);
+    this.focusNext(square, -1, 0, true, false);
   } else if (keycode == 38 || keycode == 63232) { // up
-    this.focusNext(square, 0, -1, true);
+    this.focusNext(square, 0, -1, true, false);
   } else if (keycode == 39 || keycode == 63235) { // right
-    this.focusNext(square, 1, 0, true);
+    this.focusNext(square, 1, 0, true, false);
   } else if (keycode == 40 || keycode == 63233) { // down
-    this.focusNext(square, 0, 1, true);
+    this.focusNext(square, 0, 1, true, false);
   } else if (keycode == 8) { // backspace
     if (!this.correct) {
       if (e.shiftKey) {
@@ -349,9 +494,9 @@ CrosswordWidget.prototype.keyPress = function(e) {
       } else {
         square.fill('', '', false);
         if (this.direction_horiz)
-          this.focusNext(square, -1, 0, false);
+          this.focusNext(square, -1, 0, false, false);
         else
-          this.focusNext(square, 0, -1, false);
+          this.focusNext(square, 0, -1, false, false);
         if (this.onChanged)
           this.onChanged(square.x, square.y, ' ');
       }
@@ -537,8 +682,9 @@ CrosswordWidget.prototype.focus = function() {
 
 CrosswordWidget.prototype.fadeSquareColors = function() {
   if (!Globals.widget.correct) {
-    var fade_sec = 60;
-    var cycle_sec = 5;
+    var fade_sec = 30;
+    var min_opacity = 3.0 / 4.0;
+    var cycle_sec = 3;
     var now = new Date().getTime() / 1000;
 
     // We only need to cycle through the individual cells if one has been
@@ -555,8 +701,9 @@ CrosswordWidget.prototype.fadeSquareColors = function() {
             var colors = parseHexColor(s.base_color);
             if (!colors) continue;
 
-            var opacity = 1.0 - (now - s.color_set_time) / fade_sec;
-            if (opacity < 0) opacity = 0;
+            var opacity = 1.0 - min_opacity * (now - s.color_set_time) / fade_sec;
+            if (opacity < 0.0) opacity = 0.0;
+            // if (opacity < min_opacity) opacity = min_opacity;
 
             for (var i = 0; i < 3; i++) {
               colors[i] = parseInt(255 - (255 - colors[i]) * opacity);
