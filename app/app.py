@@ -6,6 +6,7 @@
 __author__ = 'danvdk@gmail.com (Dan Vanderkam)'
 
 import datetime
+import googtmpl
 import logging
 import os
 import re
@@ -82,10 +83,22 @@ class UploadHandler(webapp.RequestHandler):
 
     self.redirect('/crossword')
 
+class FrontPage(webapp.RequestHandler):
+  def get(self):
+    num_puz = CrosswordStore.all().count()
+    vals = {
+      'NUMCROSSWORDS': num_puz
+    }
+    tmpl_file = os.path.dirname(__file__) + "/templates/frontpage.tmpl"
+    tmpl = googtmpl.Template().parse(open(tmpl_file).read())
+    self.response.out.write(tmpl.render(vals))
+
 
 application = webapp.WSGIApplication([
-  ('/crossword', PuzzlePage),
-  ('/crossword/.*', PuzzlePage),
+  ('/', FrontPage),
+  ('/crossword', PuzzleListPage),
+  ('/crossword/', PuzzleListPage),
+  ('/crossword/.+', PuzzlePage),
   ('/uploadpuz', UploadHandler),
 ], debug=True)
 

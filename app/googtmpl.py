@@ -1,20 +1,20 @@
+import cgi
+import json
 import re
+import logging
 
 class Template:
   PLAIN_TEXT = 1
   VARIABLE = 2
   GROUP = 3
 
-  def __init__(self):
-    pass
-
   def parse(self, tmpl):
-    parts = re.split(r'(\{\{[#/][^#/}]+\}\})', tmpl)
+    parts = re.split(r'(\{\{[^\}]+\}\})', tmpl)
     stack = [[]]
     tag_stack = []
 
     for part in parts:
-      m = re.match(r'\{\{([#/]?)([^#\}]+)\}\}', part)
+      m = re.match(r'\{\{([#/]?)([^#\}]+)(:[jh])?\}\}', part)
       if not m:
         # This is plain text.
         stack[-1].append((Template.PLAIN_TEXT, part, None))
@@ -22,24 +22,26 @@ class Template:
 
       if m.group(1) == '':
         # Plain variable
-        stack[-1].append((Template.VARIABLE, m.group(2), None))
+        stack[-1].append((Template.VARIABLE, m.group(2), m.group(3)))
       elif m.group(1) == '#':
         # Start of a group/conditional
         tag_stack.append(m.group(2))
         stack.append([])
       elif m.group(1) == '/':
         # End of a group/conditional
-        if 0 == len(tag_stack): return False
-        if m.group(2) != tag_stack[-1]: return False
+        if 0 == len(tag_stack):
+          return False
+        if m.group(2) != tag_stack[-1]:
+          return False
         back = stack.pop()
         stack[-1].append((Template.GROUP, tag_stack[-1], back))
-        tag_stack.pop()
+        x = tag_stack.pop()
 
     if 0 != len(tag_stack) or 1 != len(stack):
       return False
 
     self.parsed = stack[0]
-    return True
+    return self  # support t = Template().parse(...)
 
   def render(self, dict):
     return Template._render(self.parsed, dict)
@@ -52,7 +54,15 @@ class Template:
         out += content
       elif type == Template.VARIABLE:
         if content in dict:
-          out += dict[content]
+          if inside == 'j':
+            # TODO(danvk): don't think this is quite right.
+            out += json.dumps(str(dict[content]))
+          elif inside == 'h':
+            out += cgi.escape(str(dict[content]))
+          elif inside == None:
+            out += cgi.escape(str(dict[content]))
+          else:
+            assert False, "Invalid variable escape: %s" % inside
       elif type == Template.GROUP:
         if content in dict:
           val = dict[content]
