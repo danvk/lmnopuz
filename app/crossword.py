@@ -82,18 +82,16 @@ def Convert(puz):
 
   # sometimes the comment contains nuls.
   # so we limit the split to clues + 3 headers + optional comment.
-  strings = puz[ofs:].split("\0", c.cluecount + 3 + 1)
+  strings = [Latin1ToUTF8(s) for s in puz[ofs:].split("\0", c.cluecount + 3 + 1)]
 
   # TODO(checksum)
 
-  # XXX right here we should convert the strings to UTF-8.
-
   clueoffset = ofs
-  c.title = Latin1ToUTF8(strings[0])
+  c.title = strings[0]
   clueoffset += len(c.title) + 1
-  c.author = Latin1ToUTF8(strings[1])
+  c.author = strings[1]
   clueoffset += len(c.author) + 1
-  c.copyright = Latin1ToUTF8(strings[2])
+  c.copyright = strings[2]
   clueoffset += len(c.copyright) + 1
   strings = strings[3:]
 

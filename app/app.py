@@ -31,11 +31,13 @@ class CrosswordStore(db.Model):
   author = db.TextProperty()
   copyright = db.TextProperty()
 
+
 def GetTemplate(name):
   # TODO(danvk): cache templates?
   path = os.path.dirname(__file__) + "/templates/" + name
   logging.info('Loading template %s' % path)
   return googtmpl.Template().parse(open(path, "r").read())
+
 
 def ServeTemplatedPage(response, title, letters, depth, filename, data):
   csspath = '../' * depth + 'static/site.css'
@@ -64,16 +66,17 @@ class PuzzlePage(webapp.RequestHandler):
     if parts[0] == '':
       # Return a list of all puzzles.
       puzzles = CrosswordStore.all().order("-upload_time").fetch(100)
-      ServeTemplatedPage(self.response, 'Choose Crossword', 'CROSSWORDS', 1,
-                         'crosswordlist.tmpl',
-                         {
-                           'crossword': [
-                             {
-                               'title': c.title,
-                               'url': '/crossword/%s/' % c.key()
-                             }
-                           for c in puzzles]
-                         })
+      ServeTemplatedPage(
+          self.response, 'Choose Crossword', 'CROSSWORDS', 1,
+          'crosswordlist.tmpl',
+          {
+            'crossword': [
+              {
+                'title': c.title,
+                'url': '/crossword/%s/' % c.key()
+              }
+            for c in puzzles]
+          })
     else:
       key = parts[0]
       del parts[0]
