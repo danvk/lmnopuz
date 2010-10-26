@@ -1,4 +1,5 @@
 import struct
+import json
 
 class Square(object):
   def __init__(self, char):
@@ -21,6 +22,37 @@ class Crossword(object):
   @staticmethod
   def FromString(puz):
     return Convert(puz)
+
+  def ToJSON(c):
+    answers = ""
+    for y in range(0, c.height):
+      for x in range(0, c.width):
+        sq = c.squares[x][y]
+        if sq:
+          answers += sq.char
+        else:
+          answers += "."
+
+    nums = [ [None for y in range(0, c.height)] for x in range(0, c.width)]
+    for y in range(0, c.height):
+      for x in range(0, c.width):
+        sq = c.squares[x][y]
+        if sq: nums[x][y] = sq.number() or 0
+        else:  nums[x][y] = 0
+
+    cross_hash = {
+        'title': c.title,
+        'author': c.author,
+        'copyright': c.copyright,
+        'width': c.width,
+        'height': c.height,
+        'answer': answers,
+        'numbers': nums,
+        'down': [ [num, c.down[num]] for num in sorted(c.down.keys()) ],
+        'across': [ [num, c.across[num]] for num in sorted(c.across.keys()) ]
+        }
+
+    return json.dumps(cross_hash)
 
 
 def Latin1ToUTF8(x):

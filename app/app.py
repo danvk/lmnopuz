@@ -70,9 +70,9 @@ class PuzzlePage(webapp.RequestHandler):
                            'crossword': [
                              {
                                'title': c.title,
-                               'url': '/crossword/%s/' % c.key
+                               'url': '/crossword/%s/' % c.key()
                              }
-                           ]
+                           for c in puzzles]
                          })
     else:
       key = parts[0]
@@ -81,13 +81,14 @@ class PuzzlePage(webapp.RequestHandler):
       assert puz
 
       if parts[0] == '':
+        logging.info("Serving crossword page for %s" % key)
         # This page contains all the UI bits. It requests "crossword.js".
         self.response.out.write(GetTemplate('crossword.tmpl').render({
           'multiplayer': False
         }))
       elif parts[0] == 'crossword.js':
         # Serve up crossword JSON.
-        json = crossword.Convert(puz.data)
+        json = crossword.Convert(puz.data).ToJSON()
         self.response.out.write("var Crossword = " + json + ";")
 
 
@@ -110,7 +111,7 @@ class UploadHandler(webapp.RequestHandler):
     db.put(puz)
     logging.info("Stored %s in DB" % c.title)
 
-    self.redirect('/crossword')
+    self.redirect('/')
 
 
 class FrontPage(webapp.RequestHandler):

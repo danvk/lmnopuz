@@ -13,3 +13,10 @@ Currently serving {{NUMCROSSWORDS}} crosswords.</p>
   </td>
 {{/MULTI}}
 </tr></table>
+
+<h2>Upload a puzzle</h2>
+<form action="/uploadpuz" method="post" enctype="multipart/form-data">
+  <b>Choose a puz file: </b>
+  <input type="file" name="puz" size="40"><br/>
+  <input type="submit" value="Upload">
+</form>
